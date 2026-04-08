@@ -1,0 +1,28 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# AWS credentials - NEVER commit these
+.env
+*.env
+.aws/
+credentials
+*.csv
+
+# Terraform/OpenTofu state - contains secrets
+*.tfstate
+*.tfstate.backup
+.terraform/
+.tofu/
+
+# Sensitive configs
+secrets/
+*.pem
+*.key
