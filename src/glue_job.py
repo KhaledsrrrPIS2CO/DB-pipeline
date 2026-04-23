@@ -21,11 +21,19 @@ from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from pyspark.sql import Row
 from pyspark.sql.functions import col, lit
+from pyspark.conf import SparkConf
 
 
 # ── Init ─────────────────────────────────────────────────────────────────────
 args = getResolvedOptions(sys.argv, ["JOB_NAME", "bronze_bucket", "silver_bucket"])
-sc = SparkContext()
+conf = SparkConf()
+conf.set("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatalog")
+conf.set("spark.sql.catalog.glue_catalog.warehouse", f"s3://{args['silver_bucket']}/silver/")
+conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
+conf.set("spark.sql.catalog.glue_catalog.io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
+conf.set("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+
+sc = SparkContext(conf=conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
@@ -84,7 +92,7 @@ def main():
     # Read all XML files from Bronze
     bronze_path = f"s3://{BRONZE_BUCKET}/bronze/"
     xml_files = (
-        sc.wholeTextFiles(bronze_path + "**/*.xml")
+        sc.wholeTextFiles(bronze_path + "*/*/*/*/*/*.xml")
         .collect()
     )
 
@@ -121,10 +129,11 @@ def main():
     df = spark.createDataFrame(all_rows)
     silver_path = f"s3://{SILVER_BUCKET}/silver/train_quality"
 
-    df.write \
-        .format("iceberg") \
-        .mode("append") \
-        .save(silver_path)
+    spark.sql("CREATE DATABASE IF NOT EXISTS glue_catalog.train_quality_db")
+
+    df.writeTo("glue_catalog.train_quality_db.train_quality") \
+        .using("iceberg") \
+        .createOrReplace()
 
     print(f"Wrote {len(all_rows)} records to Silver Iceberg table")
     print(f"Quality scores range: {df.agg({'quality_score': 'min'}).collect()[0][0]} - "
