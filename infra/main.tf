@@ -113,6 +113,8 @@ resource "aws_glue_job" "quality_scoring" {
     "--silver_bucket" = aws_s3_bucket.silver.bucket
     "--enable-glue-datacatalog" = "true"
     "--enable-job-insights"     = "true"
+    "--datalake-formats"        = "iceberg"
+
   }
 
   max_retries = 0
