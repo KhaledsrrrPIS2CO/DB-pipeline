@@ -26,3 +26,5 @@ credentials
 secrets/
 *.pem
 *.key
+inspect/
+inspect/
