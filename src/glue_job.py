@@ -5,9 +5,9 @@ What this does:
   1. Reads raw XML from S3 Bronze
   2. Parses each train record
   3. Scores quality: complete_records / total_records × 100
-  4. A record is complete if all 6 fields are present:
-     station, train_name, planned_departure, actual_departure,
-     delay_in_min, is_canceled
+4. A record is complete if all 6 fields are present:
+     station, train_name, planned_departure,
+     platform, line, path
   5. Writes results to S3 Silver as Apache Iceberg table
 """
 
@@ -41,9 +41,10 @@ job.init(args["JOB_NAME"], args)
 
 BRONZE_BUCKET = args["bronze_bucket"]
 SILVER_BUCKET = args["silver_bucket"]
+
 REQUIRED_FIELDS = {
     "station", "train_name", "planned_departure",
-    "actual_departure", "delay_in_min", "is_canceled"
+    "platform", "line", "path"
 }
 
 
@@ -60,17 +61,18 @@ def parse_xml(xml_content: str, s3_path: str) -> list[dict]:
             event = dp if dp is not None else ar
             if event is None:
                 continue
-
+            
             record = {
                 "station": station,
                 "train_name": stop.attrib.get("id", ""),
                 "planned_departure": event.attrib.get("pt", ""),
-                "actual_departure": event.attrib.get("ct", ""),
-                "delay_in_min": event.attrib.get("dl", ""),
-                "is_canceled": event.attrib.get("cs", ""),
+                "platform": event.attrib.get("pp", ""),
+                "line": event.attrib.get("l", ""),
+                "path": event.attrib.get("ppth", ""),
                 "s3_source": s3_path,
-                "ingested_at": datetime.now(timezone.utc).isoformat(),
+                "ingested_at": datetime.now(timezone.utc).isoformat(),  
             }
+
             records.append(record)
     except ET.ParseError as e:
         print(f"Failed to parse XML from {s3_path}: {e}")
